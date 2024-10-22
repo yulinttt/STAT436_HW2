@@ -1,0 +1,153 @@
+---
+title: "STAT436_HW2"
+author: "Yulin Tong"
+date: "2024-10-20"
+output: html_document
+---
+```{r}
+library(rsconnect)
+rsconnect::setAccountInfo(name='yulint0', token='8384799C39990841C799B619CB7634C9', secret='TX04n6ylKR1arGM8Aufib/4GkepRnF6nnOiEyEaZ')
+rsconnect::deployApp('~/Documents/STAT436/HW/STAT436_HW2.Rmd')
+```
+
+```{r}
+book_df <- read_csv("https://raw.githubusercontent.com/yulinttt/STAT436_HW2/refs/heads/main/data/Books_Data_Clean.csv") %>%
+  select(
+    "Book Name", "Author", 
+    "Year" = "Publishing Year", 
+    "Language" = "language_code", 
+    "Book_Rating" = "Book_average_rating", 
+    "Genre" = "genre", 
+    "Units_Sold" = "units sold", 
+    "Sale_Price" = "sale price", 
+    "Sales_Rank" = "sales rank", 
+    "Publisher"
+  ) %>%
+  drop_na(`Book Name`) %>%
+  filter(Year >= 1750) %>%
+  mutate(
+    Genre = ifelse(Genre == "fiction", "literary fiction", Genre),
+    Language = fct_explicit_na(Language),
+    Genre = fct_explicit_na(Genre)
+  )
+
+# Sort languages by frequency and categorize into 'en' and others
+language_freq <- book_df %>%
+  group_by(Language) %>%
+  summarise(count = n()) %>%
+  arrange(desc(count))
+
+en_languages <- language_freq %>%
+  filter(grepl("^en", Language))
+
+other_languages <- language_freq %>%
+  filter(!grepl("^en", Language) & Language != "(Missing)")
+
+missing_language <- language_freq %>%
+  filter(Language == "(Missing)")
+
+# Reorder languages: 'en' first, others next, and missing last
+sorted_languages <- c(en_languages$Language, other_languages$Language, missing_language$Language)
+
+# Extract unique values for genres and languages
+languages <- pull(book_df, Language) %>%
+  unique() %>%
+  na.omit()
+
+genres <- pull(book_df, Genre) %>%
+  unique() %>%
+  na.omit()
+
+book_df <- book_df %>%
+  mutate(Language = factor(Language, levels = sorted_languages))
+
+# Function to generate a scatter plot of Book Ratings vs Units Sold
+generate_scatter_plot <- function(df) {
+  ggplot(df) +
+    geom_point(aes(Book_Rating, Units_Sold, color = factor(is_filtered, levels = c(FALSE, TRUE)))) +
+    scale_color_manual(
+      values = c("#d4d4d4", "black"), 
+      labels = c("Not Selected", "Selected")
+    ) +
+    guides(color = guide_legend(title = NULL)) +
+    labs(x = "Book Rating", y = "Units Sold") +
+    theme(legend.position = "bottom")
+}
+
+
+ui <- fluidPage(
+  titlePanel("Books Sales and Ratings Analysis"),
+  
+  fluidRow(
+    column(6, selectInput("genres", "Genre", genres)),
+    column(6, sliderInput("year", "Year", 
+                          min = min(book_df$Year), 
+                          max = max(book_df$Year), 
+                          value = c(min(book_df$Year), max(book_df$Year)), sep = ""))
+  ),
+  
+  fluidRow(
+    column(3, checkboxGroupInput("language", "Language", sorted_languages, sorted_languages)),
+    column(9, plotOutput("ratings_scatter", brush = "scatter_brush"))
+  ),
+  
+  fluidRow(
+    column(12, textOutput("brush_reset_text"))
+  ),
+  
+  fluidRow(
+    column(12, DTOutput("table"))
+  )
+)
+
+
+server <- function(input, output, session) {
+  
+  selected_brushed <- reactiveVal(NULL)
+  
+  # Filter dataset based on user input and reset brushing when input changes
+  book_subset <- reactive({
+    selected_brushed(NULL)
+    session$resetBrush("scatter_brush")
+    
+    book_df %>%
+      mutate(is_filtered = Genre %in% input$genres & 
+                          Language %in% input$language & 
+                          Year >= input$year[1] & 
+                          Year <= input$year[2])
+  })
+
+  # Observe brushing events and update selected points
+  observeEvent(input$scatter_brush, {
+    brushed_points <- brushedPoints(book_subset() %>% filter(is_filtered), input$scatter_brush, allRows = TRUE)
+    selected_brushed(brushed_points$selected_)
+  })
+  
+  # Render the scatter plot
+  output$ratings_scatter <- renderPlot({
+    generate_scatter_plot(book_subset())
+  })
+  
+  # Render the table
+  output$table <- renderDT({
+    filtered_data <- book_subset() %>% filter(is_filtered)
+ 
+    if (is.null(selected_brushed())) {
+      filtered_data
+    } else {
+      filtered_data %>% filter(selected_brushed())
+    }
+  })
+  
+  # Display the brush reset notification
+  output$brush_reset_text <- renderText({
+    "Note: The brush will be reset whenever you change any selection."
+  })
+}
+
+
+shinyApp(ui, server)
+```
+
+
+
