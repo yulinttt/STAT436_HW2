@@ -75,40 +75,44 @@ generate_scatter_plot <- function(df) {
 }
 
 
+
 ui <- fluidPage(
-  titlePanel("Books Sales and Ratings Analysis"),
+  titlePanel("Books Sales & Ratings Dashboard"),
   
+  # Create a row with filters on the left and scatter plot + table on the right
   fluidRow(
-    column(6, selectInput("genres", "Genre", genres)),
-    column(6, sliderInput("year", "Year", 
-                          min = min(book_df$Year), 
-                          max = max(book_df$Year), 
-                          value = c(min(book_df$Year), max(book_df$Year)), sep = ""))
-  ),
-  
-  fluidRow(
-    column(3, checkboxGroupInput("language", "Language", sorted_languages, sorted_languages)),
-    column(9, plotOutput("ratings_scatter", brush = "scatter_brush"))
-  ),
-  
-  fluidRow(
-    column(12, textOutput("brush_reset_text"))
-  ),
-  
-  fluidRow(
-    column(12, DTOutput("table"))
+    column(3,  
+           wellPanel(
+             # Filters for Genre, Year, and Language
+             selectInput("genres", "Select Genre", genres),
+             sliderInput("year", "Select Year Range",
+                         min = min(book_df$Year), max = max(book_df$Year), 
+                         value = c(min(book_df$Year), max(book_df$Year)), sep = ""),
+             checkboxGroupInput("language", "Select Language", sorted_languages, sorted_languages),
+             
+             # Add note at the bottom of the wellPanel
+             p("Note: The brush will be reset whenever you change any selection.", 
+               style = "color: gray; font-style: italic;")
+           ),
+           style = "background-color: #f7f7f7; padding: 15px; border-radius: 5px;"  # Style the grey panel
+    ),
+    column(9,  # Right side: scatter plot and table vertically aligned
+           plotOutput("ratings_scatter", brush = "scatter_brush"),
+           DTOutput("table")
+    )
   )
 )
 
 
 server <- function(input, output, session) {
-  
+ 
   selected_brushed <- reactiveVal(NULL)
   
-  # Filter dataset based on user input and reset brushing when input changes
+  # Reactive to filter the dataset based on user input
   book_subset <- reactive({
+    # Every time the filter changes, reset brushed points to NULL and reset the brush box
     selected_brushed(NULL)
-    session$resetBrush("scatter_brush")
+    session$resetBrush("scatter_brush") 
     
     book_df %>%
       mutate(is_filtered = Genre %in% input$genres & 
@@ -117,7 +121,7 @@ server <- function(input, output, session) {
                           Year <= input$year[2])
   })
 
-  # Observe brushing events and update selected points
+  # Observe brushing events and update the selected points based on filtered data
   observeEvent(input$scatter_brush, {
     brushed_points <- brushedPoints(book_subset() %>% filter(is_filtered), input$scatter_brush, allRows = TRUE)
     selected_brushed(brushed_points$selected_)
@@ -125,29 +129,22 @@ server <- function(input, output, session) {
   
   # Render the scatter plot
   output$ratings_scatter <- renderPlot({
-    generate_scatter_plot(book_subset())
+    scatter(book_subset())
   })
   
   # Render the table
   output$table <- renderDT({
     filtered_data <- book_subset() %>% filter(is_filtered)
- 
     if (is.null(selected_brushed())) {
       filtered_data
     } else {
       filtered_data %>% filter(selected_brushed())
     }
   })
-  
-  # Display the brush reset notification
-  output$brush_reset_text <- renderText({
-    "Note: The brush will be reset whenever you change any selection."
-  })
 }
 
 
 shinyApp(ui, server)
 ```
-
 
 
