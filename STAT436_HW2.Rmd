@@ -9,6 +9,18 @@ library(rsconnect)
 rsconnect::setAccountInfo(name='yulint0', token='8384799C39990841C799B619CB7634C9', secret='TX04n6ylKR1arGM8Aufib/4GkepRnF6nnOiEyEaZ')
 rsconnect::deployApp('~/Documents/STAT436/HW/STAT436_HW2.Rmd')
 ```
+```{r}
+rm(list = ls());
+gc();
+library(rsconnect)
+library(shiny)
+library(ggplot2)
+library(plotly)
+library(tidyverse)
+library(lubridate)
+library(dplyr)
+library(DT)
+```
 
 ```{r}
 book_df <- read_csv("https://raw.githubusercontent.com/yulinttt/STAT436_HW2/refs/heads/main/data/Books_Data_Clean.csv") %>%
@@ -62,7 +74,7 @@ book_df <- book_df %>%
   mutate(Language = factor(Language, levels = sorted_languages))
 
 # Function to generate a scatter plot of Book Ratings vs Units Sold
-generate_scatter_plot <- function(df) {
+scatter <- function(df) {
   ggplot(df) +
     geom_point(aes(Book_Rating, Units_Sold, color = factor(is_filtered, levels = c(FALSE, TRUE)))) +
     scale_color_manual(
