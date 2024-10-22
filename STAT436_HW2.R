@@ -1,17 +1,3 @@
----
-title: "STAT436_HW2"
-author: "Yulin Tong"
-date: "2024-10-20"
-output: html_document
----
-```{r}
-library(rsconnect)
-rsconnect::setAccountInfo(name='yulint0', token='8384799C39990841C799B619CB7634C9', secret='TX04n6ylKR1arGM8Aufib/4GkepRnF6nnOiEyEaZ')
-rsconnect::deployApp('STAT436_HW2.Rmd')
-```
-```{r}
-rm(list = ls());
-gc();
 library(rsconnect)
 library(shiny)
 library(ggplot2)
@@ -20,9 +6,11 @@ library(tidyverse)
 library(lubridate)
 library(dplyr)
 library(DT)
-```
+library(rsconnect)
+rsconnect::setAccountInfo(name='yulint0', token='8384799C39990841C799B619CB7634C9', secret='TX04n6ylKR1arGM8Aufib/4GkepRnF6nnOiEyEaZ')
+rsconnect::deployApp('STAT436_HW2.Rmd')
 
-```{r}
+
 book_df <- read_csv("https://raw.githubusercontent.com/yulinttt/STAT436_HW2/refs/heads/main/data/Books_Data_Clean.csv") %>%
   select(
     "Book Name", "Author", 
@@ -117,7 +105,7 @@ ui <- fluidPage(
 
 
 server <- function(input, output, session) {
- 
+  
   selected_brushed <- reactiveVal(NULL)
   
   # Reactive to filter the dataset based on user input
@@ -128,11 +116,11 @@ server <- function(input, output, session) {
     
     book_df %>%
       mutate(is_filtered = Genre %in% input$genres & 
-                          Language %in% input$language & 
-                          Year >= input$year[1] & 
-                          Year <= input$year[2])
+               Language %in% input$language & 
+               Year >= input$year[1] & 
+               Year <= input$year[2])
   })
-
+  
   # Observe brushing events and update the selected points based on filtered data
   observeEvent(input$scatter_brush, {
     brushed_points <- brushedPoints(book_subset() %>% filter(is_filtered), input$scatter_brush, allRows = TRUE)
@@ -157,6 +145,3 @@ server <- function(input, output, session) {
 
 
 shinyApp(ui, server)
-```
-
-
